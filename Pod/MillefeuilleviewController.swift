@@ -205,7 +205,7 @@ open class MillefeuilleViewController: UIViewController {
     self.closeP1PropertyAnimator?.stopAnimation(true)
     self.openP1PropertyAnimator?.finishAnimation(at: .start)
     self.closeP1PropertyAnimator?.finishAnimation(at: .end)
-    self.mainViewController.view.transform = .identity
+    self.view.frame.origin.x = 0
     self.removeMenusFromSuperview()
     self.leftMenuVisible = false
   }
@@ -279,13 +279,14 @@ extension MillefeuilleViewController: UIGestureRecognizerDelegate {
   }
   
   private func createClosePropertyAnimator() {
-    guard !self.hasRunningAnimations else { return }
-    
+    guard !self.hasRunningAnimations,
+      let leftMenuView = self.leftViewController?.view else { return }
+
     self.viewOverlay.alpha = 0.75
     self.closeP1PropertyAnimator = UIViewPropertyAnimator(duration: self.animationTimeDuration, dampingRatio: self.dampingRatio, animations: {
       self.viewOverlay.alpha = 0.0
-      self.leftViewController?.view.frame = CGRect(x: -self.leftMenuWidth, y: 0, width: self.leftMenuWidth, height: self.leftViewController!.view.frame.height)
-      self.mainViewController.view.transform = .identity
+      leftMenuView.frame = CGRect(x: -self.leftMenuWidth, y: 0, width: self.leftMenuWidth, height: leftMenuView.frame.height)
+      self.view.frame.origin.x = 0
       self.viewOverlay.frame.origin.x = 0
     })
     self.closeP1PropertyAnimator?.isUserInteractionEnabled = false
@@ -300,8 +301,8 @@ extension MillefeuilleViewController: UIGestureRecognizerDelegate {
   }
   
   private func createOpenPropertyAnimator() {
-    guard !self.hasRunningAnimations else { return }
-    guard let leftMenuView = self.leftViewController?.view else { return }
+    guard !self.hasRunningAnimations,
+          let leftMenuView = self.leftViewController?.view else { return }
     
     self.addLeftMenuToKeyWindow()
     
@@ -310,7 +311,7 @@ extension MillefeuilleViewController: UIGestureRecognizerDelegate {
     self.openP1PropertyAnimator = UIViewPropertyAnimator(duration: self.animationTimeDuration, dampingRatio: self.dampingRatio, animations: {
       self.viewOverlay.alpha = 0.75
       leftMenuView.frame = CGRect(x: 0, y: 0, width: self.leftMenuWidth, height: leftMenuView.frame.height)
-      self.mainViewController.view.transform = CGAffineTransform(translationX: self.leftMenuWidth, y: 0)
+      self.view.frame.origin.x = self.leftMenuWidth
       self.viewOverlay.frame.origin.x = self.leftMenuWidth
     })
     self.openP1PropertyAnimator?.isUserInteractionEnabled = false
@@ -525,6 +526,7 @@ class FA_SetSplitViewFromMenuSegue: UIStoryboardSegue {
       // removing reference to previous child views and controller, otherwise we will never deinit the splitview controllers and memory will go off the charts
       if let previousSplit = source.children.first as? UISplitViewController {
         previousSplit.preferredDisplayMode = .primaryHidden
+        previousSplit.willMove(toParent: nil)
         previousSplit.view.removeFromSuperview()
         previousSplit.removeFromParent()
       }
