@@ -68,9 +68,6 @@ open class MillefeuilleViewController: UIViewController {
     self.performSegue(withIdentifier: loadMasterSegueIdentifier, sender: nil)
     self.performSegue(withIdentifier: loadMenuSegueIdentifier, sender: nil)
     
-    // Checks whether or not we should change the preferred Display mode to be .OverlayVisible or not
-    //self.changePreferredDisplayMode(self.isPortrait())
-    
     // Registering to a show/hide events in order to display the left menu
     let center = NotificationCenter.default
     center.addObserver(self, selector: #selector(showMenus), name: NSNotification.Name(rawValue: MillefeuilleViewController.MILLEFEUILLE_SHOW_MENU), object: nil)
@@ -132,13 +129,21 @@ open class MillefeuilleViewController: UIViewController {
     return (orientation == .portrait || orientation == .portraitUpsideDown)
   }
   
-  /**
-   * Check if the device is in Landscape mode
-   */
-  override open func willRotate(to toInterfaceOrientation: UIInterfaceOrientation, duration: TimeInterval) {
-    super.willRotate(to: toInterfaceOrientation, duration: duration)
-    self.hideMenusImmediately()
-    //self.changePreferredDisplayMode(!self.isPortrait())
+  open override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+    super.viewWillTransition(to: size, with: coordinator)
+    coordinator.animate(alongsideTransition: { ctx in
+      self.view.frame.origin = CGPoint(x: 0, y: 0)
+      if let leftViewController = self.leftViewController {
+        self.leftViewController?.view.frame.origin.x = -leftViewController.view.frame.width
+        self.leftViewController?.view.frame.size.height = size.height
+      }
+      self.viewOverlay.alpha = 0
+      self.viewOverlay.frame = CGRect(x: 0, y: 0, width: size.width, height: size.height)
+    }) { ctx in
+      guard ctx.isCancelled == false else { return }
+      self.removeMenusFromSuperview()
+      self.leftMenuVisible = false
+    }
   }
   
   /**
@@ -197,18 +202,6 @@ open class MillefeuilleViewController: UIViewController {
     return nil
   }
   
-  /**
-   * Method to call in order to hide the menus without animation.
-   */
-  fileprivate func hideMenusImmediately() {
-    self.openP1PropertyAnimator?.stopAnimation(true)
-    self.closeP1PropertyAnimator?.stopAnimation(true)
-    self.openP1PropertyAnimator?.finishAnimation(at: .start)
-    self.closeP1PropertyAnimator?.finishAnimation(at: .end)
-    self.view.frame.origin.x = 0
-    self.removeMenusFromSuperview()
-    self.leftMenuVisible = false
-  }
   
   /**
    * Removes the menu from the superview in order:
@@ -283,11 +276,13 @@ extension MillefeuilleViewController: UIGestureRecognizerDelegate {
       let leftMenuView = self.leftViewController?.view else { return }
 
     self.viewOverlay.alpha = 0.75
+
     self.closeP1PropertyAnimator = UIViewPropertyAnimator(duration: self.animationTimeDuration, dampingRatio: self.dampingRatio, animations: {
       self.viewOverlay.alpha = 0.0
       leftMenuView.frame = CGRect(x: -self.leftMenuWidth, y: 0, width: self.leftMenuWidth, height: leftMenuView.frame.height)
       self.view.frame.origin.x = 0
-      self.viewOverlay.frame.origin.x = 0
+      // Needed to properly update the safe area in P2
+      self.view.layoutIfNeeded()
     })
     self.closeP1PropertyAnimator?.isUserInteractionEnabled = false
     self.closeP1PropertyAnimator?.addCompletion({ position in
@@ -307,12 +302,17 @@ extension MillefeuilleViewController: UIGestureRecognizerDelegate {
     self.addLeftMenuToKeyWindow()
     
     self.viewOverlay.alpha = 0.0
-    leftMenuView.frame = CGRect(x: -self.leftMenuWidth, y: 0, width: self.leftMenuWidth, height: leftMenuView.frame.height)
+    self.view.frame.origin.x = 0
+    
+    leftMenuView.frame.origin = CGPoint(x: -self.leftMenuWidth, y: 0)
+    leftMenuView.frame.size = CGSize(width: self.leftMenuWidth, height: self.view.frame.height)
+    
     self.openP1PropertyAnimator = UIViewPropertyAnimator(duration: self.animationTimeDuration, dampingRatio: self.dampingRatio, animations: {
       self.viewOverlay.alpha = 0.75
-      leftMenuView.frame = CGRect(x: 0, y: 0, width: self.leftMenuWidth, height: leftMenuView.frame.height)
+      leftMenuView.frame = CGRect(x: 0, y: 0, width: self.leftMenuWidth, height: self.view.frame.height)
       self.view.frame.origin.x = self.leftMenuWidth
-      self.viewOverlay.frame.origin.x = self.leftMenuWidth
+      // Needed to properly update the safe area in P2
+      self.view.layoutIfNeeded()
     })
     self.openP1PropertyAnimator?.isUserInteractionEnabled = false
     self.openP1PropertyAnimator?.addCompletion({ position in
